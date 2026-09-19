@@ -37,6 +37,8 @@ const categories = [
   },
 ];
 
+const normalizeCategory = (category) => String(category ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
 const getProductImage = (image) => {
   if (!image) return "";
   if (image.startsWith("http://") || image.startsWith("https://")) return image;
@@ -47,6 +49,7 @@ function App() {
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,9 +85,25 @@ function App() {
     );
   };
 
-  const openCategoryWhatsApp = (message) => {
-    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank");
+  const selectCategory = (categoryName) => {
+    setSelectedCategory(categoryName);
+    document.getElementById("produtos")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const visibleProducts = selectedCategory
+    ? products.filter((product) => normalizeCategory(product.category) === normalizeCategory(selectedCategory))
+    : products;
+
+  const [activeImageIndexes, setActiveImageIndexes] = useState({});
+
+  const selectProductImage = (productId, imageIndex) => {
+    setActiveImageIndexes((currentIndexes) => ({
+      ...currentIndexes,
+      [productId]: imageIndex,
+    }));
   };
 
   return (
@@ -210,7 +229,7 @@ function App() {
                 type="button"
                 className="category-card"
                 key={category.name}
-                onClick={() => openCategoryWhatsApp(category.message)}
+                onClick={() => selectCategory(category.name)}
               >
                 <img
                   src={category.image}
@@ -247,9 +266,22 @@ function App() {
 
         {/* PRODUCTS */}
         <section className="section" id="produtos">
-          <div className="section-title">
-            <span>ESCOLHA SEU LOOK</span>
-            <h2>Produtos em destaque</h2>
+          <div className="products-heading">
+            <div className="section-title">
+              <span>ESCOLHA SEU LOOK</span>
+              <h2>Produtos em destaque</h2>
+            </div>
+
+            <div className="products-filter" aria-live="polite">
+              <span>
+                {selectedCategory ? `Categoria: ${selectedCategory}` : "Todas as categorias"}
+              </span>
+              {selectedCategory && (
+                <button type="button" onClick={() => setSelectedCategory("")}>
+                  Ver todos
+                </button>
+              )}
+            </div>
           </div>
 
           {isLoadingProducts && (
@@ -268,16 +300,56 @@ function App() {
             </p>
           )}
 
-          {!isLoadingProducts && !productsError && products.length > 0 && (
+          {!isLoadingProducts && !productsError && products.length > 0 && visibleProducts.length === 0 && (
+            <p className="products-message" role="status">
+              Ainda não há produtos publicados na categoria {selectedCategory}.
+            </p>
+          )}
+
+          {!isLoadingProducts && !productsError && visibleProducts.length > 0 && (
             <div className="products">
-              {products.map((product) => (
+              {visibleProducts.map((product) => (
                 <article className="product-card" key={product._id}>
-                  <div className="product-image">
-                    {product.images?.[0] && (
-                      <img src={getProductImage(product.images[0])} alt={product.name} />
-                    )}
-                    {product.featured && <span className="badge">DESTAQUE</span>}
-                  </div>
+                  {(() => {
+                    const productImages = Array.isArray(product.images)
+                      ? product.images.filter(Boolean)
+                      : [];
+                    const productId = product._id ?? product.name;
+                    const activeImageIndex = Math.min(
+                      activeImageIndexes[productId] ?? 0,
+                      Math.max(productImages.length - 1, 0)
+                    );
+                    const activeImage = productImages[activeImageIndex];
+
+                    return (
+                      <div className="product-gallery">
+                        <div className="product-image">
+                          {activeImage && (
+                            <img src={getProductImage(activeImage)} alt={product.name} />
+                          )}
+                          {product.featured && <span className="badge">DESTAQUE</span>}
+                        </div>
+
+                        {productImages.length > 1 && (
+                          <div className="product-thumbnails" aria-label={`Imagens de ${product.name}`}>
+                            {productImages.map((image, imageIndex) => (
+                              imageIndex !== activeImageIndex && (
+                                <button
+                                  type="button"
+                                  className="product-thumbnail"
+                                  key={`${productId}-${imageIndex}`}
+                                  onClick={() => selectProductImage(productId, imageIndex)}
+                                  aria-label={`Ver imagem ${imageIndex + 1} de ${product.name}`}
+                                >
+                                  <img src={getProductImage(image)} alt="" />
+                                </button>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="product-info">
                     <h3>{product.name}</h3>
