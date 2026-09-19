@@ -331,6 +331,20 @@ nav a:hover {
   gap: 20px;
 }
 
+.products-message {
+  padding: 36px 20px;
+  text-align: center;
+  color: #666;
+  background: #fff3f9;
+  border: 1px solid #f7d3e7;
+  border-radius: 18px;
+  line-height: 1.6;
+}
+
+.products-message-error {
+  color: #8b315f;
+}
+
 .product-card {
   background: #fff;
   border-radius: 18px;
@@ -379,6 +393,13 @@ nav a:hover {
 .product-info h3 {
   font-size: 17px;
   margin-bottom: 8px;
+}
+
+.product-category {
+  display: block;
+  margin-bottom: 8px;
+  color: #777;
+  font-size: 13px;
 }
 
 .product-info strong {

@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import "./App.css";
 
 const whatsappNumber = "5581999791816";
+const apiUrl = `${import.meta.env.VITE_API_URL}/api/public/products/jc-modas-fitness`;
 
 const categories = [
   {
@@ -35,28 +37,43 @@ const categories = [
   },
 ];
 
-const products = [
-  {
-    name: "Calça Verde Floral",
-    price: "",
-    image: "/images/calca-verde-floral.jpeg",
-  },
-  {
-    name: "Bermudas e Calças",
-    price: "",
-    image: "/images/bermudas-e-calca.jpeg",
-  },
-  {
-    name: "Coleção JC Modas",
-    price: "",
-    image: "/images/catalogo-costas-jc-modas.jpeg",
-  },
-];
+const getProductImage = (image) => {
+  if (!image) return "";
+  if (image.startsWith("http://") || image.startsWith("https://")) return image;
+  return `${import.meta.env.VITE_API_URL}${image}`;
+};
 
 function App() {
+  const [products, setProducts] = useState([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadProducts = async () => {
+      try {
+        const response = await fetch(apiUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error("Não foi possível carregar os produtos.");
+
+        const data = await response.json();
+        const productsFromApi = Array.isArray(data) ? data : data.products;
+        setProducts(Array.isArray(productsFromApi) ? productsFromApi : []);
+      } catch (error) {
+        if (error.name !== "AbortError") setProductsError(true);
+      } finally {
+        if (!controller.signal.aborted) setIsLoadingProducts(false);
+      }
+    };
+
+    loadProducts();
+
+    return () => controller.abort();
+  }, []);
+
   const openWhatsApp = (product = "", customMessage = "") => {
     const message = customMessage || (product
-      ? `Olá! Tenho interesse no produto: ${product}`
+      ? `Olá! Vim pelo site da JC Modas Fitness e quero saber mais sobre o produto: ${product}.`
       : "Olá! Vim pelo site da JC Modas Fitness e gostaria de mais informações.");
 
     window.open(
@@ -235,28 +252,51 @@ function App() {
             <h2>Produtos em destaque</h2>
           </div>
 
-          <div className="products">
-            {products.map((product) => (
-              <article className="product-card" key={product.name}>
-                <div className="product-image">
-                  <img src={product.image} alt={product.name} />
-                  <span className="badge">NOVO</span>
-                </div>
+          {isLoadingProducts && (
+            <p className="products-message" role="status">Carregando produtos...</p>
+          )}
 
-                <div className="product-info">
-                  <h3>{product.name}</h3>
-                  {product.price && <strong>{product.price}</strong>}
+          {!isLoadingProducts && productsError && (
+            <p className="products-message products-message-error" role="alert">
+              Não foi possível carregar o catálogo agora. Tente novamente em instantes.
+            </p>
+          )}
 
-                  <button
-                    onClick={() => openWhatsApp(product.name)}
-                    className="product-button"
-                  >
-                    Comprar pelo WhatsApp
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+          {!isLoadingProducts && !productsError && products.length === 0 && (
+            <p className="products-message" role="status">
+              Nosso catálogo está sendo atualizado. Em breve teremos novidades para você.
+            </p>
+          )}
+
+          {!isLoadingProducts && !productsError && products.length > 0 && (
+            <div className="products">
+              {products.map((product) => (
+                <article className="product-card" key={product._id}>
+                  <div className="product-image">
+                    {product.images?.[0] && (
+                      <img src={getProductImage(product.images[0])} alt={product.name} />
+                    )}
+                    {product.featured && <span className="badge">DESTAQUE</span>}
+                  </div>
+
+                  <div className="product-info">
+                    <h3>{product.name}</h3>
+                    {product.category && <span className="product-category">{product.category}</span>}
+                    {product.price !== "" && product.price != null && (
+                      <strong>{product.price}</strong>
+                    )}
+
+                    <button
+                      onClick={() => openWhatsApp(product.name)}
+                      className="product-button"
+                    >
+                      Comprar pelo WhatsApp
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* ABOUT */}
